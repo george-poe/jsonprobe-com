@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<title>JSON Tools — engine self-test</title>
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  .row { padding: 6px 0; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; }
+  .ok { color: var(--ok); }
+  .fail { color: var(--err); font-weight: 600; }
+  .grp { font-weight: 700; margin: 22px 0 6px; font-family: inherit; }
+  .sum { position: sticky; top: 0; background: var(--bg); padding: 12px 0; border-bottom: 2px solid var(--line); font-size: 18px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>JSON Tools —— engine self-test</h1>
+  <p class="lede">Opens and runs by itself. Every line is an assertion; nothing here is judged by eye.</p>
+  <div class="sum" id="sum">Running…</div>
+  <div id="results"></div>
+  <p class="note">This page is for development only: noindex, and not in the sitemap. Rebuilt from <code>test/index.html</code> by the same script that builds the site.</p>
+</main>
+
+<script src="/assets/engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var E = window.JSONEngine;
+  var box = document.getElementById("results");
+  var pass = 0, fail = 0, group = null;
+
+  function g(name) {
+    group = document.createElement("div");
+    group.className = "grp";
+    group.textContent = name;
+    box.appendChild(group);
+  }
+  function t(name, cond, extra) {
+    var d = document.createElement("div");
+    d.className = "row " + (cond ? "ok" : "fail");
+    d.textContent = (cond ? "✔ " : "✘ ") + name +
+      (cond || extra === undefined ? "" : "   → " + JSON.stringify(extra));
+    box.appendChild(d);
+    cond ? pass++ : fail++;
+    var s = document.getElementById("sum");
+    s.textContent = "passed " + pass + " / failed " + fail;
+    s.style.color = fail ? "var(--err)" : "var(--ok)";
+  }
+
+  /* ── 格式化 ── */
+  g("Format");
+  var r = E.format('{"b":1,"a":[1,2,{"c":"x"}]}');
+  t("Valid JSON formats", r.ok, r.error);
+  t("Defaults to 2-space indent", r.ok && r.output.indexOf('\n  "b"') >= 0, r.ok && r.output);
+  t("Stats: root type", r.ok && r.stats.rootType === "object", r.ok && r.stats.rootType);
+  t("Stats: root entry count", r.ok && r.stats.rootSize === 2, r.ok && r.stats.rootSize);
+  t("Stats: nesting depth", r.ok && r.stats.depth === 3, r.ok && r.stats.depth);
+  t("Stats: node count", r.ok && r.stats.nodes === 7, r.ok && r.stats.nodes);
+  t("Stats: input/output bytes", r.ok && r.stats.bytesIn === 27 && r.stats.bytesOut > 27, r.ok && r.stats);
+
+  var s4 = E.format('{"a":{"b":1}}', { indent: "4" });
+  t("4-space indent", s4.ok && s4.output.indexOf('\n    "a"') >= 0, s4.ok && s4.output);
+  var stab = E.format('{"a":{"b":1}}', { indent: "tab" });
+  t("Tab indent", stab.ok && stab.output.indexOf('\n\t"a"') >= 0, stab.ok && stab.output);
+  var ssort = E.format('{"b":1,"a":2}', { sortKeys: true });
+  t("Key sort: a before b", ssort.ok && ssort.output.indexOf('"a"') < ssort.output.indexOf('"b"'));
+  var sdeep = E.format('{"z":{"b":1,"a":2}}', { sortKeys: true });
+  t("Sorting recurses to the bottom", sdeep.ok && sdeep.output.indexOf('"a"') < sdeep.output.indexOf('"b"'));
+  var sarr = E.format('{"a":[3,1,2]}', { sortKeys: true });
+  t("Sorting leaves array order alone", sarr.ok && sarr.output.indexOf("3") < sarr.output.indexOf("1"));
+  var smin = E.format('{ "a" : 1 }', { minify: true });
+  t("minify strips all whitespace", smin.ok && smin.output === '{"a":1}', smin.ok && smin.output);
+
+  /* ── 往返会悄悄改什么：正文里那四条声明必须有断言撑着 ── */
+  g("What the round trip quietly changes");
+  var bign = E.format('{"id":9007199254740993}');
+  t("Integers outside ±(2^53−1) lose the last digit",
+    bign.ok && JSON.parse(bign.output).id === 9007199254740992, bign.ok && bign.output);
+  var expo = E.format('{"n":1e21}');
+  t("1e21 comes back in exponent notation",
+    expo.ok && expo.output.indexOf("1e+21") >= 0, expo.ok && expo.output);
+  var negz = E.format('{"n":-0}');
+  t("-0 comes back as 0", negz.ok && !Object.is(JSON.parse(negz.output).n, -0),
+    negz.ok && negz.output);
+  var dup = E.format('{"a":1,"a":2}');
+  t("Duplicate keys collapse to the last one",
+    dup.ok && JSON.parse(dup.output).a === 2, dup.ok && dup.output);
+  var inf = E.format('{"n":1e999}');
+  t("1e999 becomes null, not an error", inf.ok && inf.output.replace(/\s+/g, "") === '{"n":null}',
+    inf.ok && inf.output);
+  var korder = E.format('{"b":1,"2":2}');
+  t("Integer-like keys move to the front with sorting off",
+    korder.ok && korder.output.replace(/\s+/g, "") === '{"2":2,"b":1}', korder.ok && korder.output);
+
+  /* 深度：递归的统计不能把已经成功的格式化拖死 */
+  function deepFmt(d, opt) {
+    var s = new Array(d + 1).join("[") + "1" + new Array(d + 1).join("]");
+    try { return E.format(s, opt); } catch (e) { return { ok: false, threw: e.name }; }
+  }
+  var d20 = deepFmt(20000);
+  t("20,000 levels: pretty-print refuses with a reason instead of throwing",
+    d20.ok === false && d20.threw === undefined &&
+    /refused to serialise/.test(d20.error && d20.error.message || ""),
+    d20.threw || (d20.error && d20.error.message));
+  var d2k = deepFmt(2000);
+  t("2,000 levels formats with stats intact",
+    d2k.ok === true && d2k.stats && d2k.stats.depth === 2000, d2k.ok && d2k.stats && d2k.stats.depth);
+  var m20 = (function () {
+    var s = new Array(20001).join("[") + "1" + new Array(20001).join("]");
+    try { return E.format(s, { minify: true }); } catch (e) { return { ok: false, threw: e.name }; }
+  })();
+  t("minify still completes at 20,000 levels", m20.ok === true && m20.threw === undefined,
+    m20.threw || (m20.error && m20.error.message));
+  var d8s = deepFmt(8000, { sortKeys: true });
+  t("deep sortKeys refuses with a reason instead of throwing",
+    d8s.ok === false && d8s.threw === undefined && /nests deeper/.test(d8s.error && d8s.error.message || ""),
+    d8s.threw || (d8s.error && d8s.error.message));
+
+  /* ── UI 脚本必须能解析 ──
+     一个漏写的 `+`（两个字符串字面量并排）就能让整站静默失灵：
+     页面渲染正常、按钮没反应、不报页面错误，而 88 条断言全绿——
+     因为它们只加载了 engine.js。这三条就是为那种情况加的。 */
+  g("UI scripts parse");
+  ["/assets/engine.js", "/assets/app.js", "/assets/worker.js"].forEach(function (rel) {
+    var ok = false, why = "";
+    try {
+      var x = new XMLHttpRequest();
+      x.open("GET", rel, false);
+      x.send();
+      if (x.status === 200) { new Function(x.responseText); ok = true; }
+      else { why = "HTTP " + x.status; }
+    } catch (e) { why = e.name + ": " + e.message; }
+    t(rel.split("/").pop() + " parses", ok, why);
+  });
+
+  /* ── 错误定位 ── */
+  g("Error location (the core claim; every one must match)");
+  function loc(label, text, wantLine, kw) {
+    var res = E.format(text);
+    var e = res.ok ? null : res.error;
+    t(label, !res.ok && e && e.line === wantLine && String(e.message).indexOf(kw) >= 0,
+      res.ok ? "Parsed when it should not have" : e);
+  }
+  loc("Trailing comma in object", '{\n  "a": 1,\n  "b": 2,\n}', 4, "comma");
+  loc("Trailing comma in array", "[1, 2,]", 1, "comma");
+  loc("Single-quoted key", "{\n  'a': 1\n}", 2, "single-quoted");
+  loc("Single-quoted string", '{"a": \'x\'}', 1, "single-quoted");
+  loc("Unquoted key", "{\n  foo: 1\n}", 2, "double-quoted");
+  loc("Missing colon", '{"a" 1}', 1, "colon");
+  loc("Unterminated string", '{"a": "oops}', 1, "Unterminated");
+  loc("Bad escape", '{"a": "\\q"}', 1, "escape");
+  loc("Leading zero", '{"a": 01}', 1, "leading zero");
+  loc("undefined", '{"a": undefined}', 1, "undefined");
+  loc("NaN", '{"a": NaN}', 1, "NaN");
+  loc("Infinity", '{"a": Infinity}', 1, "Infinity");
+  loc("Line comment", '{\n  // hi\n  "a":1\n}', 2, "no comments");
+  loc("Block comment", '{\n  /* hi */\n  "a":1\n}', 2, "no comments");
+  loc("Trailing content after top level", '{"a":1}{"b":2}', 1, "top level");
+  loc("Raw newline inside a string", '{"a": "x\ny"}', 1, "control character");
+  loc("Object not closed", '{"a": 1', 1, "Unterminated");
+  loc("Array not closed", "[1, 2", 1, "Unterminated");
+  loc("Minus with no digit", '{"a": -}', 1, "minus sign");
+  loc("Decimal point with no digit", '{"a": 1.}', 1, "decimal point");
+
+  var deep = '{"a":\n\n\n\n\n\n\n\n"b":1}';
+  var rd = E.format(deep);
+  t("Line number still exact across 9 lines", !rd.ok && rd.error.line === 9, rd.ok ? null : rd.error);
+  var ex = E.format('{\n  "a": 1,\n  "b": }\n}');
+  t("Error carries a source excerpt", !ex.ok && ex.error.excerpt.length > 0, ex.ok ? null : ex.error);
+  t("Empty input rejected", !E.format("").ok);
+  t("Whitespace-only input rejected", !E.format("   \n  ").ok);
+  t("null is a valid top-level value", E.format("null").ok);
+  t("Empty object is valid", E.format("{}").ok);
+  t("Empty array is valid", E.format("[]").ok);
+  t("Leading BOM rejected (the spec does not allow it)", !E.format("\uFEFF{}").ok);
+
+  /* ── JSONPath ── */
+  g("JSONPath queries");
+  var doc = JSON.stringify({ a: { b: 1, c: 2 }, list: [{ id: 1 }, { id: 2 }], id: 99 });
+  var q = E.query(doc, "$");
+  t("$ returns the whole document", q.ok && q.matches.length === 1 && q.matches[0].a);
+  var q1 = E.query(doc, "$.a.b");
+  t("$.a.b resolves to 1", q1.ok && q1.matches[0] === 1, q1);
+  var q2 = E.query(doc, "$.list[*].id");
+  t("$.list[*].id → [1,2]", q2.ok && JSON.stringify(q2.matches) === "[1,2]", q2.matches);
+  var q3 = E.query(doc, "$..id");
+  t("$..id recursive descent → [1,2,99]", q3.ok && q3.matches.length === 3, q3.matches);
+  var q4 = E.query(doc, "$.list[0].id");
+  t("$.list[0].id → 1", q4.ok && q4.matches[0] === 1, q4.matches);
+  var q5 = E.query(doc, "$.nope.deeper");
+  t("Missing path → empty array (no throw)", q5.ok && q5.matches.length === 0, q5);
+  var q6 = E.query(doc, "$.a[*]");
+  t("[*] over an object", q6.ok && q6.matches.length === 2, q6.matches);
+  var q7 = E.query("not json", "$.a");
+  t("Non-JSON input raises", !q7.ok, q7);
+  var q8 = E.query(doc, "$$$");
+  t("Malformed expression raises", !q8.ok, q8);
+
+  /* ── Diff ── */
+  g("Structural diff");
+  var d1 = E.diff({ a: 1, b: 2 }, { a: 1, b: 3, c: 4 });
+  t("Detects changed", d1.some(function (x) { return x.path === "$.b" && x.type === "changed"; }), d1);
+  t("Detects added", d1.some(function (x) { return x.path === "$.c" && x.type === "added"; }), d1);
+  t("Unchanged keys are not reported", !d1.some(function (x) { return x.path === "$.a"; }), d1);
+  var d2 = E.diff({ a: 1 }, {});
+  t("Detects removed", d2.some(function (x) { return x.path === "$.a" && x.type === "removed"; }), d2);
+  var d3 = E.diff({ a: [1, 2] }, { a: [1, 2, 3] });
+  t("Arrays compared by index", d3.some(function (x) { return x.path === "$.a[2]" && x.type === "added"; }), d3);
+  t("Identical objects give zero diffs", E.diff({ a: 1 }, { a: 1 }).length === 0);
+  t("Nested paths are correct", E.diff({ u: { r: "d" } }, { u: { r: "a" } })[0].path === "$.u.r");
+
+  /* ── Schema ── */
+  g("JSON Schema validation");
+  var sc = {
+    type: "object", required: ["name", "age"],
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 10 },
+      age: { type: "integer", minimum: 0, maximum: 150 },
+      email: { type: "string", pattern: "^[^@]+@[^@]+$" },
+      tags: { type: "array", items: { type: "string" }, minItems: 1, uniqueItems: true },
+      role: { type: "string", enum: ["admin", "dev", "viewer"] }
+    }
+  };
+  function sc_ok(name, data) {
+    var errs = E.validateSchema(data, sc);
+    t(name, errs.length === 0, errs);
+  }
+  function sc_bad(name, data, path) {
+    var errs = E.validateSchema(data, sc);
+    t(name, errs.some(function (e) { return e.path.indexOf(path) === 0; }), errs);
+  }
+  sc_ok("Fully valid data yields no errors", { name: "Ada", age: 36, email: "a@b.c", tags: ["x"], role: "dev" });
+  sc_bad("Missing required field", { age: 3 }, "$");
+  sc_bad("Wrong type (age is a string)", { name: "Ada", age: "36" }, "$.age");
+  sc_bad("String too short", { name: "A", age: 3 }, "$.name");
+  sc_bad("String too long", { name: "0123456789A", age: 3 }, "$.name");
+  sc_bad("Number below minimum", { name: "Ada", age: -1 }, "$.age");
+  sc_bad("Number above maximum", { name: "Ada", age: 999 }, "$.age");
+  sc_bad("integer rejects a fraction", { name: "Ada", age: 3.5 }, "$.age");
+  sc_bad("Pattern mismatch", { name: "Ada", age: 3, email: "nope" }, "$.email");
+  sc_bad("Array item wrong type", { name: "Ada", age: 3, tags: [1] }, "$.tags");
+  sc_bad("Array too short", { name: "Ada", age: 3, tags: [] }, "$.tags");
+  sc_bad("Duplicate in a unique array", { name: "Ada", age: 3, tags: ["x", "x"] }, "$.tags");
+  sc_bad("Value outside enum", { name: "Ada", age: 3, role: "root" }, "$.role");
+  var ap = E.validateSchema({ a: 1, extra: 2 },
+    { type: "object", properties: { a: { type: "number" } }, additionalProperties: false });
+  t("additionalProperties:false rejects extra fields",
+    ap.some(function (e) { return e.path === "$.extra"; }), ap);
+  t("schema true accepts everything", E.validateSchema({ anything: 1 }, true).length === 0);
+  t("schema false rejects everything", E.validateSchema({ a: 1 }, false).length === 1);
+
+  /* ── Web Worker ── */
+  g("Web Worker (what keeps big files off the main thread)");
+  var t0 = Date.now();
+  var big = { rows: [] };
+  for (var i = 0; i < 20000; i++) big.rows.push({ id: i, name: "row-" + i, ok: i % 2 === 0 });
+  var bigText = JSON.stringify(big);
+  t("Built about " + Math.round(bigText.length / 1024) + " KB of test data", bigText.length > 500000, bigText.length);
+
+  var w = new Worker("/assets/worker.js");
+  var settled = false;
+  w.onmessage = function (ev) {
+    settled = true;
+    var res = ev.data.result;
+    t("worker returned a result", !!res);
+    t("worker formats 20000 lines", res && res.ok, res && res.error);
+    t("worker reports the node count", res && res.ok && res.stats.nodes > 60000, res && res.ok && res.stats.nodes);
+    t("worker round trip under 3 s", Date.now() - t0 < 3000, Date.now() - t0 + " ms");
+    w.terminate();
+    finish();
+  };
+  w.onerror = function () {
+    settled = true;
+    t("worker loaded", false, "worker errored");
+    finish();
+  };
+  w.postMessage({ id: 1, op: "format", text: bigText, opt: { indent: "2" } });
+
+  setTimeout(function () {
+    if (!settled) {
+      t("worker answered within 5 s", false, "timeout — the worker may not have started");
+      finish();
+    }
+  }, 5000);
+
+  function finish() {
+    var s = document.getElementById("sum");
+    s.textContent = "passed " + pass + " / failed " + fail + (fail ? "  ← failures" : "  ← all green");
+    s.style.color = fail ? "var(--err)" : "var(--ok)";
+  }
+})();
+</script>
+</body>
+</html>

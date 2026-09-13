@@ -1,0 +1,22 @@
+# JSONProbe
+
+> Seven JSON tools that run in your browser tab. Your data never leaves the machine, and every number on these pages was measured, not promised.
+
+Every tool runs in the browser. Input is never uploaded.
+
+## Tools
+
+- [JSON Formatter](https://jsonprobe.com/json-formatter/): Paste or drop any JSON and it comes back consistently indented. Nothing is uploaded, and a syntax error gets an exact line and column — even in a 100 MB file.
+- [JSON Validator](https://jsonprobe.com/json-validator/): Checks whether a file is legal JSON and points at the first place the grammar breaks, down to the line and column. It all runs in your tab; the text is never sent anywhere.
+- [JSON Viewer](https://jsonprobe.com/json-viewer/): A tree view of any JSON: click a bracket to collapse it, see the item count before you open it, and stop scrolling forty thousand lines to find one key.
+- [JSON Beautifier](https://jsonprobe.com/json-beautifier/): Beautify or pretty print JSON in the browser. Indentation and line breaks are added and nothing else is changed — including the number you did not expect to be watched.
+- [JSON Minify](https://jsonprobe.com/json-minify/): Removes insignificant whitespace from JSON. Measured on a 3,000-record payload: 753,012 bytes down to 462,011 — 38.6% off, and the minified text is byte-identical to what the pretty file parses to.
+- [JSON Diff](https://jsonprobe.com/json-diff/): Two documents compared as structures. Indentation, key order and 1.0 versus 1 are not differences; added, removed and changed paths are.
+- [JSON Schema Validator](https://jsonprobe.com/json-schema-validator/): Check data against a schema — paste it or point at a URL. Supports the keywords people actually use; the ones that are missing are listed here rather than silently ignored.
+
+## Key facts
+
+- JSON is defined by two specs: RFC 8259 (interchange format) and ECMA-404 (syntax).
+- Standard JSON allows no comments, no trailing commas, no single-quoted strings and no unquoted keys. Formats that do are JSON5 and JSONC.
+- Formatting and validation here run in a Web Worker, so large input does not block the main thread.
+- Schema validation implements a draft-07 subset: no $ref, no allOf/anyOf/oneOf, no format keywords.

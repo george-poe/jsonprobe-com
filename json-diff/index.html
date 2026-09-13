@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON Diff — Compare Structure, Not Text</title>
+<meta name="description" content="Two documents compared as structures. Indentation, key order and 1.0 versus 1 are not differences; added, removed and changed paths are.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JSONProbe">
+<meta property="og:title" content="JSON Diff — Compare Structure, Not Text">
+<meta property="og:description" content="Two documents compared as structures. Indentation, key order and 1.0 versus 1 are not differences; added, removed and changed paths are.">
+<meta property="og:url" content="https://jsonprobe.com/json-diff/">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d5cff'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%23fff' text-anchor='middle'%3E%7B%7D%3C/text%3E%3C/svg%3E">
+<link rel="canonical" href="https://jsonprobe.com/json-diff/">
+<link rel="stylesheet" href="/assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"JSON Diff","url":"https://jsonprobe.com/json-diff/","applicationCategory":"DeveloperApplication","operatingSystem":"Any (browser-based)","browserRequirements":"Requires JavaScript. Runs entirely client-side.","description":"Two documents compared as structures. Indentation, key order and 1.0 versus 1 are not differences; added, removed and changed paths are.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["JSON formatting with line/column error reporting","Web Worker processing for very large files","Collapsible tree view","JSONPath query","Structural JSON diff","JSON Schema (draft-07 subset) validation"]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does it not report indentation differences?","acceptedAnswer":{"@type":"Answer","text":"Because it compares parsed values, not bytes. If you want a byte-level comparison of two files, that is a text diff and any editor does it."}},{"@type":"Question","name":"I inserted one array element and got hundreds of differences. Bug?","acceptedAnswer":{"@type":"Answer","text":"No — arrays are matched by index, so an insertion shifts everything after it. The report is accurate about values at paths; it just is not describing your intent. Sort or align the arrays first if order is not meaningful to you."}},{"@type":"Question","name":"Can it compare two files instead of two boxes?","acceptedAnswer":{"@type":"Answer","text":"Not onto the diff boxes — only the Format panel has a drop target, and both diff sides are paste-only. Drop the file into Format, copy the result, paste it here. There is no directory or repository mode; for a folder of JSON, use a text diff with a JSON-aware formatter in the pipeline."}},{"@type":"Question","name":"Is there a limit on reported differences?","acceptedAnswer":{"@type":"Answer","text":"The comparison is complete and so is the display: nothing is silently dropped, which means a 10,000-difference result is a long page. The count at the top is the true total."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"JSONProbe","item":"https://jsonprobe.com/"},{"@type":"ListItem","position":2,"name":"JSON Diff","item":"https://jsonprobe.com/json-diff/"}]}</script>
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">JSONProbe</a>
+    <nav>
+      <a href="/json-formatter/">Formatter</a>
+      <a href="/json-validator/">Validator</a>
+      <a href="/json-viewer/">Viewer</a>
+      <a href="/json-diff/">Diff</a>
+      <a href="/json-schema-validator/">Schema</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <h1>JSON Diff</h1>
+  <p class="lede">Two documents compared as structures. Indentation, key order and &lt;code&gt;1.0&lt;/code&gt; versus &lt;code&gt;1&lt;/code&gt; are not differences; added, removed and changed paths are.</p>
+
+
+
+
+  <div class="tool">
+    <div class="tabs" role="tablist">
+      <button id="tab-format" role="tab" aria-selected="false">Format &amp; validate</button>
+      <button id="tab-tree" role="tab" aria-selected="false">Tree view</button>
+      <button id="tab-query" role="tab" aria-selected="false">JSONPath query</button>
+      <button id="tab-diff" role="tab" aria-selected="false">Diff</button>
+      <button id="tab-schema" role="tab" aria-selected="false">Schema validation</button>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <label>Indent
+          <select id="opt-indent">
+            <option value="2" selected>2 spaces</option>
+            <option value="4">4 spaces</option>
+            <option value="3">3 spaces</option>
+            <option value="1">1 space</option>
+            <option value="tab">Tab</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="opt-sort"> Sort keys alphabetically</label>
+        <label><input type="checkbox" id="opt-minify"> Minify</label>
+        <span style="flex:1"></span>
+        <button class="btn primary" id="btn-format">Format</button>
+        <button class="btn" id="btn-sample">Sample</button>
+        <button class="btn" id="btn-clear">Clear</button>
+      </div>
+
+      <!-- ── Format &amp; validate ── -->
+      <div id="panel-format">
+        <div class="grid2">
+          <div class="io">
+            <div class="io-head"><span>Input</span><span class="grow"></span>
+              <span id="input-info">empty</span>
+              <label class="btn tiny" style="cursor:pointer">Open file
+                <input type="file" id="file" accept=".json,.txt,application/json" hidden>
+              </label>
+            </div>
+            <textarea id="input" spellcheck="false" autocomplete="off" autocapitalize="off"
+              placeholder='Paste JSON here, or drop a.json file…'></textarea>
+            <div class="drop" id="drop">Drop a.json file here — read locally, never uploaded</div>
+          </div>
+          <div class="io">
+            <div class="io-head"><span>Result</span><span class="grow"></span>
+              <button class="btn tiny" id="btn-copy">Copy</button>
+              <button class="btn tiny" id="btn-download">Download</button>
+            </div>
+            <pre class="outbox" id="output"></pre>
+          </div>
+        </div>
+        <div class="errbox" id="error" hidden></div>
+        <div class="stats" id="stats" hidden></div>
+        <p class="note">Ctrl / Cmd + Enter formats as well.</p>
+      </div>
+
+      <!-- ── Tree view ── -->
+      <div id="panel-tree" hidden>
+        <p class="note">Click any <code>{ }</code> or <code>[ ]</code> to collapse or expand it. The number beside a bracket is its item count, so an empty array is obvious at a glance. Rendering stops at 5,000 nodes.</p>
+        <div id="tree"><p class="note">Paste JSON into the Format &amp; validate tab first.</p></div>
+      </div>
+
+      <!-- ── JSONPath ── -->
+      <div id="panel-query" hidden>
+        <div class="controls">
+          <input type="text" id="path" value="$..id" spellcheck="false">
+          <button class="btn primary" id="btn-query">Run query</button>
+        </div>
+        <div class="try">
+          Try:
+          <button class="btn tiny" data-path="$.user.name">$.user.name</button>
+          <button class="btn tiny" data-path="$..id">$..id (every id, recursively)</button>
+          <button class="btn tiny" data-path="$.orders[*].total">$.orders[*].total</button>
+          <button class="btn tiny" data-path="$">$ (the whole document)</button>
+        </div>
+        <pre class="outbox" id="query-result" style="margin-top:12px"></pre>
+        <p class="note">Supported: <code>$</code>, <code>.key</code>, <code>..key</code> (recursive descent), <code>[0]</code> and <code>[*]</code>. That is the subset developers actually use, not the whole JSONPath grammar.</p>
+      </div>
+
+      <!-- ── Diff ── -->
+      <div id="panel-diff" hidden>
+        <div class="grid2">
+          <div class="io">
+            <div class="io-head"><span>Left (before)</span></div>
+            <textarea id="diff-a" spellcheck="false" placeholder='{"a": 1}'></textarea>
+          </div>
+          <div class="io">
+            <div class="io-head"><span>Right (after)</span></div>
+            <textarea id="diff-b" spellcheck="false" placeholder='{"a": 2, "b": 3}'></textarea>
+          </div>
+        </div>
+        <div class="controls" style="margin-top:12px"><button class="btn primary" id="btn-diff">Compare</button></div>
+        <pre class="outbox" id="diff-result"></pre>
+        <p class="note">Compared <strong>structurally</strong>, not as text. Indentation, key order and <code>1.0</code> vs <code>1</code> are not reported as differences.</p>
+      </div>
+
+      <!-- ── Schema ── -->
+      <div id="panel-schema" hidden>
+        <div class="io">
+          <div class="io-head"><span>JSON Schema — a draft-07 subset, or an http(s) URL</span></div>
+          <textarea id="schema-src" spellcheck="false" placeholder='{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}'>
+          </textarea>
+        </div>
+        <div class="controls" style="margin-top:12px">
+          <button class="btn primary" id="btn-schema">Validate the JSON above</button>
+        </div>
+        <pre class="outbox" id="schema-result"></pre>
+        <p class="note">The data comes from the input box on the Format &amp; validate tab. Supported: <code>type</code>, <code>required</code>, <code>properties</code>, <code>items</code>, <code>enum</code>, <code>const</code>, numeric bounds, string length and pattern, array length and uniqueness, and <code>additionalProperties</code>. Not supported yet: <code>$ref</code>, <code>allOf</code>/<code>anyOf</code>/<code>oneOf</code> and <code>format</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="prose">
+      <p>A text diff of two JSON files answers a question nobody is asking. Re-indenting a document, or adding one field at the top, makes every following line "change" — and buries the three differences you came for. A structural diff compares values by path, so it reports <code>config.limits.rate</code> changed from 100 to 500 and nothing else.</p>
+      <p>This one walks both trees in parallel and emits paths: <code>a.b[2].c</code>, not line numbers. Keys in a different order are equal. <code>1.0</code> and <code>1</code> are equal, because both parse to the same number.</p>
+    <h2>How arrays are handled, and where it hurts</h2>
+    <p>Arrays are compared <strong>by index</strong>. That is the correct
+default for JSON, where array order is part of the data — and it has a sharp edge you
+should know about before trusting a diff report:</p>
+<p>Insert one element at the start of a 10,000-item array and every index shifts, so the
+tool reports 10,000 changes. It is not wrong — <code>items[0]</code> genuinely holds a
+different value now — but it is not what you meant either. A tool that told you
+"one insertion" would have to run a longest-common-subsequence match per array, which is
+quadratic, and would be guessing at your semantics.</p>
+<p>If you are diffing two API responses where order is not meaningful, sort them first
+(<em>Sort keys</em> handles objects; arrays are yours), then compare.</p>
+    <h2>What is deliberately not reported</h2>
+    <ul>
+<li>Whitespace and indentation.</li>
+<li>Object key order.</li>
+<li><code>1.0</code> vs <code>1</code>, <code>1e3</code> vs <code>1000</code> — same number
+after parsing.</li>
+<li>Duplicate keys, which collapse during parsing; the last one is compared.</li>
+<li>Which document a key came from, when one side is missing it — that is reported as a
+removal, not as <code>undefined</code>.</li>
+</ul>
+<p>Two documents that differ only in formatting are reported as identical. That is the
+point of the tool.</p>
+    <h2>Frequently asked questions</h2>
+    <details class="faq" open>
+      <summary>Why does it not report indentation differences?</summary>
+      <p>Because it compares parsed values, not bytes. If you want a byte-level comparison of two files, that is a text diff and any editor does it.</p>
+    </details>
+    <details class="faq">
+      <summary>I inserted one array element and got hundreds of differences. Bug?</summary>
+      <p>No — arrays are matched by index, so an insertion shifts everything after it. The report is accurate about values at paths; it just is not describing your intent. Sort or align the arrays first if order is not meaningful to you.</p>
+    </details>
+    <details class="faq">
+      <summary>Can it compare two files instead of two boxes?</summary>
+      <p>Not onto the diff boxes — only the Format panel has a drop target, and both diff sides are paste-only. Drop the file into Format, copy the result, paste it here. There is no directory or repository mode; for a folder of JSON, use a text diff with a JSON-aware formatter in the pipeline.</p>
+    </details>
+    <details class="faq">
+      <summary>Is there a limit on reported differences?</summary>
+      <p>The comparison is complete and so is the display: nothing is silently dropped, which means a 10,000-difference result is a long page. The count at the top is the true total.</p>
+    </details>
+    <h2>Related tools</h2>
+    <div class="cards">
+      <a class="card" href="/json-formatter/"><div class="t">JSON Formatter</div><div class="d">Paste or drop any JSON and it comes back consistently indented. Nothing is uploaded, and…</div></a>
+      <a class="card" href="/json-validator/"><div class="t">JSON Validator</div><div class="d">Checks whether a file is legal JSON and points at the first place the grammar breaks, do…</div></a>
+      <a class="card" href="/json-viewer/"><div class="t">JSON Viewer</div><div class="d">A tree view of any JSON: click a bracket to collapse it, see the item count before you o…</div></a>
+    </div>
+  </div>
+
+</main>
+<footer class="site">
+  <div class="wrap">
+    <p>Every tool on this site runs inside your browser tab, and nothing you paste is sent anywhere. The one outbound request the code can make is the optional schema-by-URL fetch on the Schema tab: it sends the URL you typed, never your document.</p>
+    <div class="row">
+      <a href="/json-formatter/">JSON Formatter</a>
+      <a href="/json-validator/">JSON Validator</a>
+      <a href="/json-viewer/">JSON Viewer</a>
+      <a href="/json-beautifier/">JSON Beautifier</a>
+      <a href="/json-minify/">JSON Minify</a>
+      <a href="/json-diff/">JSON Diff</a>
+      <a href="/json-schema-validator/">JSON Schema Validator</a>
+    </div>
+  </div>
+</footer>
+<script>window.JSON_TOOLS_DEFAULT_TAB="diff";</script>
+<script src="/assets/engine.js"></script>
+<script src="/assets/app.js"></script>
+</body>
+</html>
