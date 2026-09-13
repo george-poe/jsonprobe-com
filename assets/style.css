@@ -1,5 +1,5 @@
-/* 无框架、无网络字体、无外部请求 —— 页面本身就必须快。
- * 这既是体验，也是差异点：第 1 名那些站动不动 40–110 KB 的 HTML。 */
+/* no framework, no web fonts, no external requests — the page itself has to be fast.
+ * that is both the experience and the differentiator: the #1 sites ship 40-110 KB of HTML. */
 
 :root {
   --bg: #ffffff;
@@ -64,7 +64,7 @@ h3 { font-size: 17px; margin: 24px 0 8px; }
 p { margin: 0 0 14px; }
 .lede { color: var(--muted); font-size: 16px; margin-bottom: 20px; }
 
-/* ── 工具本体 ───────────────────────────────────────────── */
+/* ── Tool body ───────────────────────────────────────────── */
 .tool { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
 
 .tabs { display: flex; gap: 2px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
@@ -144,7 +144,7 @@ pre.err-ex {
   padding: 2px 8px; border-radius: 10px;
 }
 
-/* ── 树视图 ─────────────────────────────────────────────── */
+/* ── Tree view ─────────────────────────────────────────────── */
 #tree { max-height: 560px; overflow: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6; }
 .tn-kids { padding-left: 18px; border-left: 1px dotted var(--line); margin-left: 5px; }
 .tn-head { cursor: pointer; display: block; }
@@ -162,7 +162,7 @@ pre.err-ex {
 
 .try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
 
-/* ── 正文内容 ───────────────────────────────────────────── */
+/* ── Prose ───────────────────────────────────────────── */
 .prose { max-width: 760px; margin-top: 40px; }
 .prose h2 { border-top: 1px solid var(--line); padding-top: 22px; }
 .prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; }

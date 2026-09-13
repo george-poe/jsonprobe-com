@@ -1,10 +1,10 @@
-/* Web Worker  —  大文件不卡主线程.
+/* Web Worker  —  large files never block the main thread.
  *
- * 这就是这个工具和 jsonformatter.org / json-indent.com 的硬差异之一: 
- * 它们把 JSON.parse + JSON.stringify 放在主线程上, 几 MB 的输入页面就假死.
- * 放 worker 里, 100 MB 的输入 UI 照样能滚动.
+ * this is one of the hard differences between this tool and jsonformatter.org / json-indent.com: 
+ * they run JSON.parse + JSON.stringify on the main thread, so a few MB of input freezes the page.
+ * in a worker, a 100 MB input still leaves the UI scrollable.
  *
- * 和 engine.js 共用同一份实现(importScripts), 避免两个版本逻辑漂移.
+ * shares one implementation with engine.js (importScripts) so the two copies cannot drift apart.
  */
 importScripts("engine.js");
 

@@ -1,25 +1,25 @@
-/* JSON 工具引擎  —  纯函数, 无 DOM 依赖.
+/* JSON tools engine  —  pure functions, no DOM dependency.
  *
- * 同一份文件被两处加载: 
- *   · 页面(<script src="/assets/engine.js">) —  小输入同步处理
- *   · Web Worker(importScripts('engine.js')) —  大输入不阻塞主线程
+ * one file, loaded from two places: 
+ *   · the page (<script src="/assets/engine.js">) —  small input handled synchronously
+ *   · Web Worker (importScripts('engine.js')) —  large input never blocks the main thread
  *
- * 挂在 self.JSONEngine 上, 这样浏览器和 worker 两种上下文都能用.
+ * hung on self.JSONEngine so both the browser and the worker context can use it.
  */
 (function (root) {
   "use strict";
 
-  /* ── 语法错误定位 ──────────────────────────────────────────────
-   * ⚠️ 不能依赖 JSON.parse 的报错消息.
+  /* ── Locating syntax errors ──────────────────────────────────────────────
+   * ⚠️ never rely on the message JSON.parse throws.
    *
-   * 实测(Chrome/V8, 2026-09): 旧版消息形如 "Unexpected token } in JSON at
-   * position 137", 但**新版已经不再提供 position**, 改成给一段上下文: 
+   * measured on Chrome/V8, 2026-09: the old message read "Unexpected token } in JSON at
+   * position 137", but **newer engines no longer provide position**, they give a context snippet instead: 
    *     Unexpected token '}',..."b": }\n}" is not valid JSON
-   * 也就是说, 现代引擎自己不肯告诉你错在第几行第几列.
+   * in other words, a modern engine will not tell you the line and column itself.
    *
-   * 所以这里自带一个递归下降解析器, 只干一件事: 在 JSON.parse 报错之后
-   * 重新扫一遍, 找出**第一个非法位置**并换算成行列.
-   * 它只在失败路径上跑, 正常格式化不会多付一次解析成本.
+   * so this ships its own recursive descent parser with one job: after JSON.parse throws,
+   * scan it again, find the **first illegal offset** and convert it to line/column.
+   * it only runs on the failure path, so a normal format never pays for a second parse.
    */
 
   function ParseError(msg, line, col, pos) {
@@ -29,14 +29,14 @@
     this.pos = pos;
   }
 
-  /* 扫一遍文本, 返回第一个语法错误的 ParseError; 没问题返回 null. */
+  /* scan the text once and return a ParseError for the first syntax error; return null when there is none. */
   function scanForError(text) {
     var i = 0, n = text.length, line = 1, col = 1;
 
     function fail(msg) { throw new ParseError(msg, line, col, i); }
     function bump() {
-      // charAt 每次要分配一个单字串; 这个函数全文每字符调一次, 
-      // 100 MB 就是 1 亿次分配.改成 charCodeAt 比数字比较.
+      // charAt allocates a single-character string per call; this runs once per character over the whole file, 
+      // 100 MB is 100 million allocations. switched to comparing charCodeAt numbers.
       if (text.charCodeAt(i) === 10) { line++; col = 1; } else { col++; }
       i++;
     }
@@ -50,7 +50,7 @@
     }
     function peek() { return i < n? text.charAt(i): ""; }
     function matchWord(w) {
-      // substr 会分配新串; 先用长度已知的三个词走 charCodeAt 比较
+      // substr allocates a new string; the three known-length words are compared by charCodeAt instead
       if (i + w.length > n) return false;
       for (var k = 0; k < w.length; k++) {
         if (text.charCodeAt(i + k)!== w.charCodeAt(k)) return false;
@@ -194,10 +194,10 @@
     }
   }
 
-  /* 统一的报错构造: 先用自己扫出来的位置; 拿不到再退化到引擎消息. */
-  /* 扫描代价上限.实测每 10 MB 约 300 ms(在 worker 里), 100 MB 约 3 秒.
-     报错路径上等 3 秒换一个精确行列, 比不给位置强; 上限留到 192 MB
-     只是防止有人丢个 GB 级文件进来把标签页打挂. */
+  /* one place to build an error: use the position the scan found; only fall back to the engine message. */
+  /* scan cost ceiling. measured: about 300 ms per 10 MB (inside the worker), about 3 s at 100 MB.
+     waiting 3 s on the error path to buy an exact line/column beats giving no position; the ceiling stays 192 MB
+     it only stops someone dumping a GB-scale file in and killing the tab. */
   var MAX_SCAN = 192 * 1024 * 1024;
 
   function locate(text, err) {
@@ -230,14 +230,14 @@
     };
   }
 
-  /* ── 输出那一行附近的原文, 用于错误预览 ── */
+  /* ── raw text around the offending line, for the error preview ── */
   function excerpt(text, line, column, radius, pos) {
     if (line == null) return "";
     radius = radius || 40;
     var raw;
     if (pos!= null) {
-      // 有字节偏移就直接钉行边界, O(一行).split 整个文件在 100 MB /
-      // 480 万行上会造出 480 万个临时串, 比扫描本身还贵.
+      // a byte offset pins the line bounds directly, O(one line). splitting the whole file at 100 MB /
+      // on 4.8 M lines that builds 4.8 M temporary strings, dearer than the scan itself.
       var ls = text.lastIndexOf("\n", Math.max(0, pos - 1)) + 1;
       var le = text.indexOf("\n", pos);
       if (le < 0) le = text.length;
@@ -251,7 +251,7 @@
     return (start > 0? "…": "") + raw.slice(start, end) + (end < raw.length? "…": "");
   }
 
-  /* ── 排序键(递归, 数组顺序保持不动) ── */
+  /* ── sort keys (recursive, array order left alone) ── */
   function sortKeysDeep(v) {
     if (Array.isArray(v)) return v.map(sortKeysDeep);
     if (v && typeof v === "object") {
@@ -270,10 +270,10 @@
     return "  ";                       // default 2 spaces — must match the UI default
   }
 
-  /* ── 格式化 ──────────────────────────────────────────────────
-   * 顺带做两件 jsonformatter.org 不做的事: 
-   *   1. 报告输出体积与压缩率
-   *   2. 报告顶层结构(对象/数组/标量 + 条目数), 这是开发者真正想先知道的
+  /* ── Formatting ──────────────────────────────────────────────────
+   * it also does two things jsonformatter.org does not: 
+   *   1. report the output size and the shrink ratio
+   *   2. report the top-level shape (object/array/scalar + entry count), which is what a developer wants first
    */
   function format(text, opt) {
     opt = opt || {};
@@ -311,8 +311,8 @@
         line: null, column: null } };
     }
 
-    // 统计用的是递归，几千层就会撞上调用栈。它是附加信息，不该把
-    // 已经成功的格式化一起拖死：算不出来就给个原因，输出照常返回。
+    // the stats walk recurses, so a few thousand levels hit the call stack. they are supplementary — they must not take a
+    // successful format down with it: if the numbers cannot be computed, say why and return the output anyway.
     var stats = null, statsError = null;
     try {
       stats = {
@@ -334,17 +334,17 @@
   }
 
   function byteLen(s) {
-    // TextEncoder 比 s.length 准; 没有就退化.
-    // 但超过 16 MB 时不再分配那个同尺寸的 Uint8Array: 100 MB 的输出上
-    // 这一步实测比整个解析还贵, 而格式化输出几乎全是 ASCII, 误差可忽略.
+    // TextEncoder is truer than s.length; fall back when it is missing.
+    // but past 16 MB it stops allocating the same-size Uint8Array: on a 100 MB output
+    // this step measures dearer than the entire parse, and formatted output is nearly all ASCII, so the error is negligible.
     if (s.length > 16777216) return s.length;
     if (typeof TextEncoder!== "undefined") return new TextEncoder().encode(s).length;
     return s.length;
   }
 
   function countLines(s) {
-    // 大字符串上 split("\n") 会造出上千万个临时串, 100 MB 输入实测比
-    // 整个解析还慢.小输入照旧.
+    // on a big string split("\n") builds tens of millions of temporary strings, so 100 MB of input measures slower than
+    // the whole parse. small inputs keep the old split path.
     if (s.length < 2097152) return s.split("\n").length;
     var n = 1, i = -1;
     while ((i = s.indexOf("\n", i + 1))!== -1) n++;
@@ -367,9 +367,9 @@
     return best + 1;
   }
 
-  /* ── JSONPath 子集查询 ────────────────────────────────────────
-   * 支持: $.a.b, $[0], $[*], $..key(递归下降), $['k'], $.a[*].b
-   * 这是开发者最常用的那部分, 不是完整 JSONPath.
+  /* ── JSONPath subset query ────────────────────────────────────────
+   * supports: $.a.b, $[0], $[*], $..key (recursive descent), $['k'], $.a[*].b
+   * this is the part developers actually use, not full JSONPath.
    */
   function tokenizePath(path) {
     var s = path.trim();
@@ -431,9 +431,9 @@
     return { ok: true, matches: cur, output: JSON.stringify(cur.length === 1? cur[0]: cur, null, 2) };
   }
 
-  /* ── 结构化 diff ──────────────────────────────────────────────
-   * 只报真实的结构差异, 不做文本行 diff — 文本 diff 对 JSON 没用, 
-   * 因为加一个字段会让后面所有行都"变化".
+  /* ── Structural diff ──────────────────────────────────────────────
+   * reports real structural differences only, never a text line diff — a text diff is useless on JSON, 
+   * because one added field makes every later line "change".
    */
   function diff(a, b, at, out) {
     at = at || "$"; out = out || [];
@@ -475,11 +475,11 @@
     return s.length > 60? s.slice(0, 57) + "…": s;
   }
 
-  /* ── JSON Schema 校验(draft-07 子集) ────────────────────────
-   * 覆盖: type, required, properties, items, enum, const, 
+  /* ── JSON Schema validation (draft-07 subset) ────────────────────────
+   * covers: type, required, properties, items, enum, const, 
    *       minimum/maximum, minLength/maxLength, pattern, 
    *       minItems/maxItems, uniqueItems, additionalProperties
-   * 不覆盖: $ref, allOf/anyOf/oneOf, format(这几个留待后续)
+   * does not cover: $ref, allOf/anyOf/oneOf, format (those are left for later)
    */
   function validateSchema(data, schema, at) {
     at = at || "$";

@@ -48,7 +48,7 @@
     s.style.color = fail ? "var(--err)" : "var(--ok)";
   }
 
-  /* ── 格式化 ── */
+  /* ── formatting ── */
   g("Format");
   var r = E.format('{"b":1,"a":[1,2,{"c":"x"}]}');
   t("Valid JSON formats", r.ok, r.error);
@@ -72,7 +72,7 @@
   var smin = E.format('{ "a" : 1 }', { minify: true });
   t("minify strips all whitespace", smin.ok && smin.output === '{"a":1}', smin.ok && smin.output);
 
-  /* ── 往返会悄悄改什么：正文里那四条声明必须有断言撑着 ── */
+  /* ── what a round trip quietly changes: the four claims in the copy need assertions behind them ── */
   g("What the round trip quietly changes");
   var bign = E.format('{"id":9007199254740993}');
   t("Integers outside ±(2^53−1) lose the last digit",
@@ -93,7 +93,7 @@
   t("Integer-like keys move to the front with sorting off",
     korder.ok && korder.output.replace(/\s+/g, "") === '{"2":2,"b":1}', korder.ok && korder.output);
 
-  /* 深度：递归的统计不能把已经成功的格式化拖死 */
+  /* depth: the recursive stats must not take a successful format down with it */
   function deepFmt(d, opt) {
     var s = new Array(d + 1).join("[") + "1" + new Array(d + 1).join("]");
     try { return E.format(s, opt); } catch (e) { return { ok: false, threw: e.name }; }
@@ -117,10 +117,10 @@
     d8s.ok === false && d8s.threw === undefined && /nests deeper/.test(d8s.error && d8s.error.message || ""),
     d8s.threw || (d8s.error && d8s.error.message));
 
-  /* ── UI 脚本必须能解析 ──
-     一个漏写的 `+`（两个字符串字面量并排）就能让整站静默失灵：
-     页面渲染正常、按钮没反应、不报页面错误，而 88 条断言全绿——
-     因为它们只加载了 engine.js。这三条就是为那种情况加的。 */
+  /* ── the UI scripts must parse ──
+     one missing `+` (two string literals side by side) was enough to kill the whole site silently:
+     the page looked fine, the buttons did nothing, nothing was reported, and all 88 assertions stayed green —
+     because they only load engine.js. These three checks exist for exactly that case. */
   g("UI scripts parse");
   ["/assets/engine.js", "/assets/app.js", "/assets/worker.js"].forEach(function (rel) {
     var ok = false, why = "";
@@ -134,7 +134,7 @@
     t(rel.split("/").pop() + " parses", ok, why);
   });
 
-  /* ── 错误定位 ── */
+  /* ── error location ── */
   g("Error location (the core claim; every one must match)");
   function loc(label, text, wantLine, kw) {
     var res = E.format(text);

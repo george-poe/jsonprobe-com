@@ -1,7 +1,7 @@
-/* JSON 工具前端.
+/* JSON tools front end.
  *
- * 所有重活走 Web Worker(见 worker.js); Worker 起不来就退化为同步调用, 
- * 不能让整个工具因为一个 worker 加载失败而不可用.
+ * all heavy work goes to the Web Worker (see worker.js); if the worker will not start it degrades to a synchronous call, 
+ * a worker that fails to load must not take the whole tool down.
  */
 (function () {
   "use strict";
@@ -9,7 +9,7 @@
   var E = window.JSONEngine;
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ── Worker 封装 ─────────────────────────────────────────────── */
+  /* ── Worker wrapper ─────────────────────────────────────────────── */
   var Worker_ = { ready: false, w: null, seq: 0, pending: {} };
 
   try {
@@ -24,7 +24,7 @@
     Worker_.ready = false;
   }
 
-  /* run() 统一入口: 优先 worker, 失败退化同步 */
+  /* run() is the single entry point: worker first, synchronous fallback on failure */
   function run(op, payload, cb) {
     if (Worker_.ready) {
       var id = ++Worker_.seq;
@@ -44,7 +44,7 @@
     setTimeout(function () { cb(r); }, 0);
   }
 
-  /* ── 小工具 ─────────────────────────────────────────────────── */
+  /* ── Small helpers ─────────────────────────────────────────────────── */
   function bytes(n) {
     if (n < 1024) return n + " B";
     if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
@@ -64,7 +64,7 @@
   }
   function now() { return (performance && performance.now)? performance.now(): Date.now(); }
 
-  /* ── 选项 ───────────────────────────────────────────────────── */
+  /* ── Options ───────────────────────────────────────────────────── */
   function opt() {
     return {
       indent: ($("opt-indent") || {}).value || "2",
@@ -73,7 +73,7 @@
     };
   }
 
-  /* ── 标签切换 ───────────────────────────────────────────────── */
+  /* ── Tab switching ───────────────────────────────────────────────── */
   var TABS = ["format", "tree", "query", "diff", "schema"];
   function showTab(name) {
     TABS.forEach(function (t) {
@@ -92,7 +92,7 @@
   if (TABS.indexOf(initial) < 0) initial = "format";
   showTab(initial);
 
-  /* ── 输入区 ─────────────────────────────────────────────────── */
+  /* ── Input area ─────────────────────────────────────────────────── */
   var input = $("input");
   var inputInfo = $("input-info");
 
@@ -103,7 +103,7 @@
   input.addEventListener("input", updateInputInfo);
   updateInputInfo();
 
-  /* 拖放.json 文件  —  纯浏览器 FileReader, 不上传任何服务器 */
+  /* Drag and drop a .json file — plain browser FileReader, nothing reaches any server */
   var drop = $("drop");
   ["dragenter", "dragover"].forEach(function (ev) {
     drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
@@ -133,7 +133,7 @@
     fr.readAsText(f);
   }
 
-  /* ── 格式化 / 校验 ──────────────────────────────────────────── */
+  /* ── Format / validate ──────────────────────────────────────────── */
   var out = $("output"), errBox = $("error"), stats = $("stats");
 
   function showError(err) {
@@ -178,7 +178,7 @@
         renderOutput(r.output);
         showStats(r.stats);
         if (r.statsUnavailable) {
-          // 统计算不出来得说为什么，不然看起来像输出被吃掉了。
+          // if the stats cannot be computed, say why — otherwise it looks like output went missing.
           $("stats").insertAdjacentHTML("beforeend",
             "<span>Nesting is too deep for the stats walk (" + esc(r.statsUnavailable) +
             ") — the formatted output above is complete.</span>");
@@ -188,9 +188,9 @@
     });
   }
 
-  /* 大输出不全量塞进 DOM — 超过 1 MB 只渲染前 200 KB 并明确提示。
-     但完整结果得留在 lastOutput 里：DOM 只是预览，Copy / Download 不能把
-     被砍断的预览当结果交出去（那会交到一份不合法的 JSON）。 */
+  /* Big output never goes into the DOM in full — past 1 MB we render the first 200 KB and say so.
+     but the full result still has to live in lastOutput: the DOM is only a preview, and Copy / Download must not hand out
+     a chopped-off preview as the result, which would hand the user invalid JSON. */
   var lastOutput = null;
 
   function renderOutput(s) {
@@ -244,7 +244,7 @@
     if ($(id)) $(id).addEventListener("change", doFormat);
   });
 
-  /* ── 树视图 ─────────────────────────────────────────────────── */
+  /* ── Tree view ─────────────────────────────────────────────────── */
   var TREE_NODE_CAP = 5000;
   var treeTruncated = false;
 
@@ -317,7 +317,7 @@
     treeBox.innerHTML = "";
     var t = buildTree(data);
     if (t) treeBox.appendChild(t);
-    // 截断必须说：默不作声地少画一半，比不截断还坑。
+    // truncation must be announced: quietly drawing half the tree is worse than not truncating.
     if (treeTruncated) {
       treeBox.appendChild(el("p", "note",
         "The tree stopped at " + TREE_NODE_CAP.toLocaleString() +
@@ -327,7 +327,7 @@
   }
   if ($("tab-tree")) $("tab-tree").addEventListener("click", doTree);
 
-  /* ── JSONPath 查询 ──────────────────────────────────────────── */
+  /* ── JSONPath query ──────────────────────────────────────────── */
   if ($("btn-query")) $("btn-query").addEventListener("click", function () {
     var q = $("path").value;
     var res = $("query-result");
@@ -366,7 +366,7 @@
     });
   });
 
-  /* ── Schema 校验 ────────────────────────────────────────────── */
+  /* ── Schema validation ────────────────────────────────────────────── */
   if ($("btn-schema")) $("btn-schema").addEventListener("click", function () {
     var box = $("schema-result");
     var src = $("schema-src").value;
@@ -404,7 +404,7 @@
 .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
 .then(function (t) { validateWith(t, box); })
 .catch(function (e) {
-          // 网络失败自己重试, 最多 3 次
+          // retry on network failure, at most 3 attempts
           if (tries < MAX) { box.textContent = "Attempt " + tries + " failed (" + e.message + "), retrying…"; setTimeout(attempt, 800 * tries); }
           else {
             box.className = "outbox err";
@@ -415,6 +415,6 @@
     })();
   }
 
-  /* ── 初始: 带 hash 直接进某个面板时也把内容准备好 ── */
+  /* ── Initial state: prepare the panel content when a hash opens a tab directly ── */
   if (input.value.trim()) { doFormat(); }
 })();
