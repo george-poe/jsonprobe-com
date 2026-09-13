@@ -33,7 +33,7 @@
   <h1>JSONProbe</h1>
   <p class="lede">Seven JSON tools that run in your browser tab. Your data never leaves the machine, and every number on these pages was measured, not promised.</p>
   <div class="cards">
-    <a class="card" href="/json-formatter/"><div class="t">JSON Formatter</div><div class="d">Paste or drop any JSON and it comes back consistently indented. Nothing is uploaded, and a syntax error gets…</div></a>
+    <a class="card" href="/json-formatter/"><div class="t">JSON Formatter</div><div class="d">Paste or drop any JSON and it comes back consistently indented. Nothing you paste is uploaded, and a syntax…</div></a>
     <a class="card" href="/json-validator/"><div class="t">JSON Validator</div><div class="d">Checks whether a file is legal JSON and points at the first place the grammar breaks, down to the line and…</div></a>
     <a class="card" href="/json-viewer/"><div class="t">JSON Viewer</div><div class="d">A tree view of any JSON: click a bracket to collapse it, see the item count before you open it, and stop…</div></a>
     <a class="card" href="/json-beautifier/"><div class="t">JSON Beautifier</div><div class="d">Beautify or pretty print JSON in the browser. Indentation and line breaks are added and nothing else is…</div></a>
@@ -43,7 +43,7 @@
   </div>
   <div class="prose">
       <p>Seven tools, one page each, and all of it runs in your browser tab. Paste JSON and get it back consistently indented; get the exact line and column of the first syntax error; walk a large document as a collapsible tree; query it with JSONPath; diff two documents by structure rather than by text; validate against a JSON Schema.</p>
-      <p>There is no upload step to disable, because there is no upload — parsing and formatting happen in a Web Worker inside the page, and the Network panel stays empty while you work. That is also why a 100 MB file does not freeze the tab: the work is off the main thread, so the worst frame stayed at 53.5 fps and the average was 63.7 while the worker crunched. The performance figures on each page were measured in Chrome 152, and the code that produced them ships alongside the page so you can re-run it.</p>
+      <p>There is no upload step to disable, because there is no upload — parsing and formatting happen in a Web Worker inside the page, and no request this page makes carries your document. That is also why a 100 MB file does not freeze the tab: the work is off the main thread, so the worst frame stayed at 53.5 fps and the average was 63.7 while the worker crunched. The performance figures on each page were measured in Chrome 152, and the code that produced them ships alongside the page so you can re-run it.</p>
       <p>Everything is free, with no account and no rate limit. If the file is already on disk and you have a terminal, <code>python -m json.tool</code> is faster and gives you an exit code — these pages are for clipboard-sized problems, for looking at structure instead of reading text, and for the case where a syntax error is somewhere in forty thousand lines.</p>
   </div>
 
@@ -59,10 +59,12 @@
       <a href="/json-minify/">JSON Minify</a>
       <a href="/json-diff/">JSON Diff</a>
       <a href="/json-schema-validator/">JSON Schema Validator</a>
+      <a href="/privacy/">Privacy</a>
     </div>
   </div>
 </footer>
 <script src="/assets/engine.js"></script>
 <script src="/assets/app.js"></script>
+
 </body>
 </html>

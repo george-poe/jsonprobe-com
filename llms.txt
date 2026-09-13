@@ -6,7 +6,7 @@ Every tool runs in the browser. Input is never uploaded.
 
 ## Tools
 
-- [JSON Formatter](https://jsonprobe.com/json-formatter/): Paste or drop any JSON and it comes back consistently indented. Nothing is uploaded, and a syntax error gets an exact line and column — even in a 100 MB file.
+- [JSON Formatter](https://jsonprobe.com/json-formatter/): Paste or drop any JSON and it comes back consistently indented. Nothing you paste is uploaded, and a syntax error gets an exact line and column — even in a 100 MB file.
 - [JSON Validator](https://jsonprobe.com/json-validator/): Checks whether a file is legal JSON and points at the first place the grammar breaks, down to the line and column. It all runs in your tab; the text is never sent anywhere.
 - [JSON Viewer](https://jsonprobe.com/json-viewer/): A tree view of any JSON: click a bracket to collapse it, see the item count before you open it, and stop scrolling forty thousand lines to find one key.
 - [JSON Beautifier](https://jsonprobe.com/json-beautifier/): Beautify or pretty print JSON in the browser. Indentation and line breaks are added and nothing else is changed — including the number you did not expect to be watched.
