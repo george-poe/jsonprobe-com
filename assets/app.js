@@ -264,6 +264,40 @@
     return lastOutput == null ? out.textContent : lastOutput;
   }
 
+  /* Clipboard on an http page. `navigator.clipboard` does not exist in an insecure
+     context, so a bare call throws synchronously and the button looks broken while
+     saying nothing. These pages are served over http until the certificate lands —
+     which is precisely when every visitor would have hit it. execCommand is deprecated
+     but still works where the async API is absent, so: try modern, fall back, and tell
+     the truth if both fail instead of reporting "Copied" on a failed copy. */
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var done = false;
+    try { done = document.execCommand("copy"); } catch (e) { done = false; }
+    document.body.removeChild(ta);
+    return !!done;
+  }
+
+  function copyText(text, ok, fail) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, function () { legacyCopy(text)? ok(): fail(); });
+    } else {
+      legacyCopy(text)? ok(): fail();
+    }
+  }
+
+  /* Worker failures arrive as an object; String() of that prints "[object Object]"
+     in the one place the reader needed the actual reason. */
+  function errText(e) {
+    if (!e) return "Something went wrong.";
+    return (typeof e === "object" && e.message)? String(e.message): String(e);
+  }
+
   if ($("btn-format")) $("btn-format").addEventListener("click", doFormat);
   if ($("btn-clear")) $("btn-clear").addEventListener("click", function () {
     input.value = ""; out.textContent = ""; lastOutput = null; updateInputInfo(); showError(null); showStats(null);
@@ -277,9 +311,8 @@
     updateInputInfo(); doFormat();
   });
   if ($("btn-copy")) $("btn-copy").addEventListener("click", function () {
-    navigator.clipboard.writeText(resultText()).then(function () {
-      flash($("btn-copy"), "Copied");
-    }, function () { flash($("btn-copy"), "Copy failed"); });
+    copyText(resultText(), function () { flash($("btn-copy"), "Copied"); },
+             function () { flash($("btn-copy"), "Copy did not work — select the text and press Ctrl+C"); });
   });
   if ($("btn-download")) $("btn-download").addEventListener("click", function () {
     var blob = new Blob([resultText()], { type: "application/json" });
@@ -388,7 +421,7 @@
     var q = $("path").value;
     var res = $("query-result");
     run("query", { text: input.value, path: q }, function (r) {
-      if (!r.ok) { res.className = "outbox err"; res.textContent = String(r.error); return; }
+      if (!r.ok) { res.className = "outbox err"; res.textContent = errText(r.error); return; }
       res.className = "outbox";
       if (r.matches.length === 0) { res.textContent = "No matches."; return; }
       res.textContent = r.matches.length === 1
@@ -407,7 +440,7 @@
   if ($("btn-diff")) $("btn-diff").addEventListener("click", function () {
     var box = $("diff-result");
     run("diff", { a: $("diff-a").value, b: $("diff-b").value }, function (r) {
-      if (!r.ok) { box.className = "outbox err"; box.textContent = String(r.error); return; }
+      if (!r.ok) { box.className = "outbox err"; box.textContent = errText(r.error); return; }
       box.className = "outbox";
       if (r.changes.length === 0) { box.textContent = "The two documents are structurally identical."; return; }
       var counts = { added: 0, removed: 0, changed: 0 };
