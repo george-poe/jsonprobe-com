@@ -136,14 +136,48 @@
   /* ── Format / validate ──────────────────────────────────────────── */
   var out = $("output"), errBox = $("error"), stats = $("stats");
 
+  /* One link, zero requests: the browser opens GitHub (or the visitor's mail
+     client) with a note pre-filled from run diagnostics. The document itself is
+     never read here — only its length is. tools/feedback.py audits every call
+     site at build time, and test/index.html checks the field caps with a canary
+     string, because "we only send the size" is the kind of sentence that rots
+     the moment someone adds one more field to make triage easier. */
+  function feedbackLink(label, extra) {
+    var url = E.reportURL(extra);
+    if (!url) return "";
+    return '<a class="fb" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+           esc(label) + "</a>";
+  }
+
+  function feedbackEl(label, extra) {
+    var url = E.reportURL(extra);
+    if (!url) return null;
+    var a = document.createElement("a");
+    a.className = "fb";
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = label;
+    return a;
+  }
+
   function showError(err) {
     if (!err) { errBox.hidden = true; errBox.innerHTML = ""; return; }
+    // The link rides next to the failure, not in a footer: a parse error is the
+    // one moment a visitor both has context and feels the tool let them down.
+    err.feedback = feedbackLink("Tell us and we will fix it", {
+      bytes: input.value.length,
+      error: err.message,
+      line: err.line,
+      column: err.column
+    });
     var pos = (err.line!= null)? ("line " + err.line + ", column " + err.column + ""): "position unknown";
     errBox.hidden = false;
     errBox.innerHTML =
       '<strong>Invalid JSON</strong> — ' + esc(pos) +
       '<div class="err-msg">' + esc(err.message || "") + "</div>" +
-      (err.excerpt? '<pre class="err-ex">' + esc(err.excerpt) + "</pre>": "");
+      (err.excerpt? '<pre class="err-ex">' + esc(err.excerpt) + "</pre>": "") +
+      (err.feedback || "");
   }
 
   function showStats(s) {
@@ -181,7 +215,8 @@
           // if the stats cannot be computed, say why — otherwise it looks like output went missing.
           $("stats").insertAdjacentHTML("beforeend",
             "<span>Nesting is too deep for the stats walk (" + esc(r.statsUnavailable) +
-            ") — the formatted output above is complete.</span>");
+            ") — the formatted output above is complete." +
+            feedbackLink("Tell us", { notice: r.statsUnavailable }) + "</span>");
         }
         $("stats").insertAdjacentHTML("beforeend", "<span>Took <b>" + ms + "</b></span>");
       }
@@ -319,10 +354,13 @@
     if (t) treeBox.appendChild(t);
     // truncation must be announced: quietly drawing half the tree is worse than not truncating.
     if (treeTruncated) {
-      treeBox.appendChild(el("p", "note",
+      var note = el("p", "note",
         "The tree stopped at " + TREE_NODE_CAP.toLocaleString() +
         " nodes. The rest of the document is still there — it is just not drawn."
-        + " Use the text view, or Download, for the whole thing."));
+        + " Use the text view, or Download, for the whole thing.");
+      var fb = feedbackEl("too little for you? tell us", { notice: "tree cap", nodes: TREE_NODE_CAP });
+      if (fb) note.appendChild(fb);
+      treeBox.appendChild(note);
     }
   }
   if ($("tab-tree")) $("tab-tree").addEventListener("click", doTree);

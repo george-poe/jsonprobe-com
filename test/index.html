@@ -48,6 +48,25 @@
     s.style.color = fail ? "var(--err)" : "var(--ok)";
   }
 
+  /* ── the UI scripts must parse ──
+     one missing `+` (two string literals side by side) was enough to kill the whole site
+     silently: the page looked fine, the buttons did nothing, and every assertion below stayed
+     green because they only read engine.js output. This group is deliberately FIRST: today a
+     syntax error in engine.js threw on the very next assertion, so the run died before the
+     check that names the real problem ever executed. Order here is the fix, not decoration. */
+  g("UI scripts parse");
+  ["/assets/engine.js", "/assets/app.js", "/assets/worker.js"].forEach(function (rel) {
+    var ok = false, why = "";
+    try {
+      var x = new XMLHttpRequest();
+      x.open("GET", rel, false);
+      x.send();
+      if (x.status === 200) { new Function(x.responseText); ok = true; }
+      else { why = "HTTP " + x.status; }
+    } catch (e) { why = e.name + ": " + e.message; }
+    t(rel.split("/").pop() + " parses", ok, why);
+  });
+
   /* ── formatting ── */
   g("Format");
   var r = E.format('{"b":1,"a":[1,2,{"c":"x"}]}');
@@ -116,23 +135,6 @@
   t("deep sortKeys refuses with a reason instead of throwing",
     d8s.ok === false && d8s.threw === undefined && /nests deeper/.test(d8s.error && d8s.error.message || ""),
     d8s.threw || (d8s.error && d8s.error.message));
-
-  /* ── the UI scripts must parse ──
-     one missing `+` (two string literals side by side) was enough to kill the whole site silently:
-     the page looked fine, the buttons did nothing, nothing was reported, and all 88 assertions stayed green —
-     because they only load engine.js. These three checks exist for exactly that case. */
-  g("UI scripts parse");
-  ["/assets/engine.js", "/assets/app.js", "/assets/worker.js"].forEach(function (rel) {
-    var ok = false, why = "";
-    try {
-      var x = new XMLHttpRequest();
-      x.open("GET", rel, false);
-      x.send();
-      if (x.status === 200) { new Function(x.responseText); ok = true; }
-      else { why = "HTTP " + x.status; }
-    } catch (e) { why = e.name + ": " + e.message; }
-    t(rel.split("/").pop() + " parses", ok, why);
-  });
 
   /* ── error location ── */
   g("Error location (the core claim; every one must match)");
@@ -249,6 +251,75 @@
     ap.some(function (e) { return e.path === "$.extra"; }), ap);
   t("schema true accepts everything", E.validateSchema({ anything: 1 }, true).length === 0);
   t("schema false rejects everything", E.validateSchema({ a: 1 }, false).length === 1);
+
+  /* ── feedback prefill ── */
+  /* The promise on these pages is narrow and checkable: the pre-filled note carries
+     diagnostics, never the document. Checked here because the rule is "a field that
+     is not on the list does not reach the URL" — which is exactly the line someone
+     breaks by adding one convenient field later. tools/feedback.py audits the call
+     sites; these check the builder they lean on. */
+  g("Feedback prefill (what a report may carry)");
+  var saved = window.SITE_FEEDBACK;
+  var CANARY = "SECRET-DOC-42-" + "x".repeat(600);
+  window.SITE_FEEDBACK = { repo: "owner/repo", site: "test.example", built: "2026-01-01" };
+  var fu = E.reportURL({ bytes: 1234, error: "Unexpected token , at position 5", line: 8 });
+  t("github channel produces a link", fu.indexOf("https://github.com/owner/repo/issues/new?title=") === 0, fu.slice(0, 60));
+  t("page path and byte count are in it", decodeURIComponent(fu).indexOf("bytes: 1234") >= 0 ||
+    decodeURIComponent(fu).indexOf("Bytes: 1234") >= 0, decodeURIComponent(fu).slice(0, 200));
+  var off = (function () { delete window.SITE_FEEDBACK; var u = E.reportURL({ bytes: 1 }); window.SITE_FEEDBACK = saved; return u; })();
+  t("no channel configured means no link at all", off === "", JSON.stringify(off));
+  var leak = E.reportURL({ secretDocument: CANARY, body: CANARY, text: CANARY });
+  t("keys outside the whitelist are dropped", leak.indexOf("SECRET-DOC") < 0, leak.slice(0, 120));
+  var big = E.reportURL({ error: CANARY });
+  var decoded = decodeURIComponent(big);
+  var xs = (decoded.match(/x/g) || []).length;
+  t("a long error message is clipped, not carried", xs <= E.FB_FIELD_CAP + 8, xs + " x-chars survived");
+  var many = {};
+  for (var fi = 0; fi < 40; fi++) many["notice"] = CANARY;
+  var longUrl = E.reportURL(many);
+  t("url stays under the send cap", longUrl.length <= E.FB_URL_CAP, longUrl.length + " chars");
+  t("no percent-escape is cut in half", !/%[0-9A-Fa-f]?$/.test(longUrl), longUrl.slice(-24));
+  window.SITE_FEEDBACK = { mail: "someone@example.com", site: "test.example" };
+  var mailUrl = E.reportURL({ bytes: 7 });
+  t("mail-only channel falls back to mailto", mailUrl.indexOf("mailto:someone@example.com?subject=") === 0, mailUrl.slice(0, 50));
+  window.SITE_FEEDBACK = saved;
+
+  /* ── parity against the build-time spec ── */
+  /* The expected strings in parity.json were produced by tools/fb_parity.py at build
+     time; this loop recomputes them with the engine the visitor actually loads. A
+     mismatch means one side was edited alone — which never shows up as an error, it
+     just makes every report arrive slightly wrong. */
+  g("Feedback parity (engine.js vs the shipped spec)");
+  var par = null, pwhy = "";
+  try {
+    var px = new XMLHttpRequest();
+    px.open("GET", "parity.json", false);
+    px.send();
+    if (px.status === 200) par = JSON.parse(px.responseText);
+    else pwhy = "HTTP " + px.status;
+  } catch (e) { pwhy = e.name + ": " + e.message; }
+  t("parity.json is reachable", !!par, pwhy || "absent — build.py writes it into dist/test/");
+  if (par) {
+    t("caps match the spec", par.caps.field === E.FB_FIELD_CAP && par.caps.url === E.FB_URL_CAP,
+      [par.caps, E.FB_FIELD_CAP, E.FB_URL_CAP]);
+    var pdiff = null, pn = 0;
+    par.rows.forEach(function (r) {
+      window.SITE_FEEDBACK = r.cfg;
+      var got = E.reportURL(r.extra, r.path);
+      window.SITE_FEEDBACK = saved;
+      pn++;
+      if (pdiff === null && got !== r.out) {
+        pdiff = r.id + "\n      want " + r.out.slice(0, 110) + "\n      got  " + got.slice(0, 110);
+      }
+    });
+    t("all " + pn + " prefilled URLs match byte for byte", pdiff === null, pdiff);
+    t("no-channel config yields no link", (function () {
+      window.SITE_FEEDBACK = { site: "x" };
+      var u = E.reportURL({ bytes: 1 });
+      window.SITE_FEEDBACK = saved;
+      return u === "";
+    })());
+  }
 
   /* ── Web Worker ── */
   g("Web Worker (what keeps big files off the main thread)");

@@ -567,12 +567,113 @@
     return errs;
   }
 
+/* FB-BLOCK:BEGIN */
+  /* ── Feedback prefill ───────────────────────────────────────────────
+     A visitor hitting an error gets one link that opens a note *they* send.
+     Nothing is sent by the page itself: no fetch, no beacon, no request until
+     a click happens. What the prefill carries is deliberately small — the page
+     path, the byte length, the timing, and the message the tool printed. The
+     document is never carried whole and no field exceeds FB_FIELD_CAP, but the
+     honest wording matters: some error messages quote a short fragment of the
+     input (that is what makes them useful), which is why the note is always
+     shown to the visitor for editing before anything is sent, and why
+     /privacy/ says exactly that instead of claiming a leak-proof channel.
+     The caps are asserted in test/index.html with a canary string, and the
+     call sites in app.js are audited by tools/feedback.py at build time. */
+  var FB_KEYS = ["tool", "page", "bytes", "ms", "error", "line", "column",
+                 "notice", "indent", "nodes", "host", "bits"];
+  var FB_FIELD_CAP = 120;
+  var FB_URL_CAP = 1800;
+
+  function fbClip(v) {
+    if (v === null || v === undefined || v === "") return "";
+    /* Numbers are truncated to an integer and printed without an exponent, on both
+       sides of the parity check. JS String(1e21) is "1e+21" while Python's is 22 raw
+       digits, and the parity fixture caught that on its first run — so the contract is
+       "integers, decimal notation", not "whatever the language's default gives". */
+    if (typeof v === "number") {
+      if (!isFinite(v)) return "";
+      var t = Math.trunc(v);
+      /* toFixed(0) is NOT decimal notation at magnitude: past 1e21 the spec says it
+         just returns ToString, which flips to "1e+21". BigInt is the exact-integer
+         path, and 1e300 stays decimal that way too — matching Python's int(). */
+      v = (typeof BigInt!== "undefined" && Math.abs(t) >= 1e21)? BigInt(t).toString(): t.toFixed(0);
+    }
+    var s = String(v).replace(/\s+/g, " ").trim();
+    if (!s) return "";
+    return s.length > FB_FIELD_CAP? s.slice(0, FB_FIELD_CAP - 1): s;
+  }
+
+  function fbLabel(k) {
+    return k === "ms"? "Milliseconds": k.charAt(0).toUpperCase() + k.slice(1);
+  }
+
+  /** Build the address a feedback note opens at. "" when no channel is set.
+      `at` exists for the parity fixture only (tools/fb_parity.py) — production
+      call sites never pass it, so the page path is always the real one. */
+  function reportURL(extra, at) {
+    var cfg = root.SITE_FEEDBACK;
+    if (!cfg) return "";
+    extra = extra || {};
+    var here = (at !== undefined && at !== null)? String(at)
+      : ((typeof location!== "undefined" && location.pathname)? location.pathname: "/");
+    var lines = ["Page: " + fbClip(here)];
+    if (cfg.built) lines.push("Build: " + cfg.built);   // stale-cache triage: which bundle did they see?
+    for (var k in extra) {
+      if (FB_KEYS.indexOf(k) < 0) continue;
+      var v = fbClip(extra[k]);
+      if (v) lines.push(fbLabel(k) + ": " + v);
+    }
+    lines.push("— written by a visitor; the page does not attach the document " +
+               "being worked on. Paste a minimal sample yourself only if you " +
+               "are fine with it becoming public.");
+    var subject = "[" + (cfg.site || "feedback") + "] " + fbClip(here);
+    var err = fbClip(extra.error || "");
+    if (err) subject += " — " + err.slice(0, 60);
+
+    function assemble(bodyText) {
+      if (cfg.repo) {
+        return "https://github.com/" + cfg.repo + "/issues/new?title=" +
+               encodeURIComponent(subject) + "&body=" + encodeURIComponent(bodyText);
+      }
+      if (cfg.mail) {
+        return "mailto:" + cfg.mail + "?subject=" + encodeURIComponent(subject) +
+               "&body=" + encodeURIComponent(bodyText.replace(/\n/g, "\r\n"));
+      }
+      return "";
+    }
+
+    var body = lines.join("\n");
+    var url = assemble(body);
+    // Overlong: drop diagnostics from the middle, keeping the first line (the page)
+    // and the last (the note that says nothing was attached).
+    while (url.length > FB_URL_CAP && lines.length > 2) {
+      lines.splice(lines.length - 2, 1);
+      body = lines.join("\n");
+      url = assemble(body);
+    }
+    // Still over: cut the raw text before encoding it. Slicing the finished URL can
+    // split a percent-escape, and a stray "%4" shows up in the report as a broken page.
+    while (url.length > FB_URL_CAP && body.length > 24) {
+      body = body.slice(0, Math.floor(body.length * (FB_URL_CAP - 40) / url.length)) + " ...";
+      url = assemble(body);
+    }
+    if (url.length > FB_URL_CAP) url = assemble("Details trimmed: the note was too long to send.");
+    return url;
+  }
+/* FB-BLOCK:END */
+
   root.JSONEngine = {
     format: format,
     query: query,
     diff: diff,
     validateSchema: validateSchema,
     locate: locate,
-    byteLen: byteLen
+    byteLen: byteLen,
+    reportURL: reportURL,
+    fbClip: fbClip,
+    FB_KEYS: FB_KEYS,
+    FB_FIELD_CAP: FB_FIELD_CAP,
+    FB_URL_CAP: FB_URL_CAP
   };
 })(typeof self!== "undefined"? self: this);
