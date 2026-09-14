@@ -96,12 +96,30 @@
   var input = $("input");
   var inputInfo = $("input-info");
 
+  /* Paste-and-go. The tagline on this page says "paste JSON and get it back", so the
+     run has to happen without hunting for a button — that sentence is the claim this
+     listener exists to keep true. Debounced instead of per-keystroke (a 5 MB format
+     costs ~200 ms in the worker; requestAnimationFrame-per-keystroke would queue a
+     dozen runs), and switched off above AUTO_MAX where an accidental auto-run would
+     burn seconds on a 100 MB file. The button still works at every size. */
+  var AUTO_MAX = 8 * 1024 * 1024;
+  var autoTimer = null;
+
   function updateInputInfo() {
     var n = E.byteLen(input.value);
     inputInfo.textContent = n? bytes(n) + " · " + input.value.split("\n").length + " lines": "empty";
+    if (n > AUTO_MAX) {
+      inputInfo.textContent += " · above the auto-run size, press Format";
+    }
   }
   input.addEventListener("input", updateInputInfo);
   updateInputInfo();
+
+  input.addEventListener("input", function () {
+    if (autoTimer) clearTimeout(autoTimer);
+    if (E.byteLen(input.value) > AUTO_MAX) { autoTimer = null; return; }
+    autoTimer = setTimeout(function () { autoTimer = null; doFormat(); }, 400);
+  });
 
   /* Drag and drop a .json file — plain browser FileReader, nothing reaches any server */
   var drop = $("drop");
