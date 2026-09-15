@@ -670,6 +670,7 @@
     validateSchema: validateSchema,
     locate: locate,
     byteLen: byteLen,
+    countLines: countLines,
     reportURL: reportURL,
     fbClip: fbClip,
     FB_KEYS: FB_KEYS,

@@ -136,6 +136,24 @@
     d8s.ok === false && d8s.threw === undefined && /nests deeper/.test(d8s.error && d8s.error.message || ""),
     d8s.threw || (d8s.error && d8s.error.message));
 
+  /* ── line counting: the number behind the "N lines" readout ── */
+  g("Line counting");
+  t("empty string counts as one line", E.countLines("") === 1, E.countLines(""));
+  t("no newline is one line", E.countLines("abc") === 1, E.countLines("abc"));
+  t("one newline is two lines", E.countLines("a\nb") === 2, E.countLines("a\nb"));
+  t("a trailing newline still opens a line", E.countLines("a\n") === 2, E.countLines("a\n"));
+  t("CRLF is one break, not two", E.countLines("a\r\nb") === 2, E.countLines("a\r\nb"));
+  t("the small path agrees with split", (function () {
+    var s = new Array(4000).join("x\n");
+    return E.countLines(s) === s.split("\n").length;
+  })());
+  t("the big path agrees with split", (function () {
+    // past 2 MB the engine walks with indexOf instead of building an array of every
+    // line; it has to agree with split, or the readout is lying about big pastes
+    var s = new Array(300001).join("xxxxxxxxxxxxxxxx\n");
+    return s.length > 2097152 && E.countLines(s) === s.split("\n").length;
+  })());
+
   /* ── error location ── */
   g("Error location (the core claim; every one must match)");
   function loc(label, text, wantLine, kw) {

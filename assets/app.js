@@ -107,17 +107,21 @@
 
   function updateInputInfo() {
     var n = E.byteLen(input.value);
-    inputInfo.textContent = n? bytes(n) + " · " + input.value.split("\n").length + " lines": "empty";
+    inputInfo.textContent = n? bytes(n) + " · " + E.countLines(input.value) + " lines": "empty";
     if (n > AUTO_MAX) {
       inputInfo.textContent += " · above the auto-run size, press Format";
     }
+    return n;
   }
-  input.addEventListener("input", updateInputInfo);
   updateInputInfo();
 
+  /* one measurement per keystroke, not two: byteLen over 10 MB is not free, and the
+     line count has to come from the engine's counter rather than split("\n"), which
+     builds a million temporary strings on a million-line paste. */
   input.addEventListener("input", function () {
+    var n = updateInputInfo();
     if (autoTimer) clearTimeout(autoTimer);
-    if (E.byteLen(input.value) > AUTO_MAX) { autoTimer = null; return; }
+    if (n > AUTO_MAX) { autoTimer = null; return; }
     autoTimer = setTimeout(function () { autoTimer = null; doFormat(); }, 400);
   });
 
