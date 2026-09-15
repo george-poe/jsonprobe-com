@@ -9,16 +9,16 @@
 <meta property="og:site_name" content="JSONProbe">
 <meta property="og:title" content="Privacy — JSONProbe">
 <meta property="og:description" content="What happens to your data on this site, stated precisely — including the one place where something does leave your browser.">
-<meta property="og:url" content="https://jsonprobe.com/privacy/">
+<meta property="og:url" content="http://jsonprobe.com/privacy/">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d5cff'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%23fff' text-anchor='middle'%3E%7B%7D%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="/logo-192.png">
-<meta property="og:image" content="https://jsonprobe.com/logo.png">
-<meta name="twitter:image" content="https://jsonprobe.com/logo.png">
+<meta property="og:image" content="http://jsonprobe.com/logo.png">
+<meta name="twitter:image" content="http://jsonprobe.com/logo.png">
   <meta name="robots" content="noindex,follow">
-<link rel="canonical" href="https://jsonprobe.com/privacy/">
+<link rel="canonical" href="http://jsonprobe.com/privacy/">
 <link rel="stylesheet" href="/assets/style.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"PrivacyPolicy","name":"Privacy","url":"https://jsonprobe.com/privacy/","dateModified":"2026-09-14"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"PrivacyPolicy","name":"Privacy","url":"http://jsonprobe.com/privacy/","dateModified":"2026-09-14"}</script>
 </head>
 <body>
 <header class="site">
@@ -40,23 +40,23 @@
   <div class="prose">
   <h2 id="your-document-is-not-transmitted-to-us">Your document is not transmitted to us</h2>
       <p>Formatting, minifying, validating, diffing, the tree view and the JSONPath query all run on your machine. There is no upload endpoint, no backend, no account system and no database behind this site. The page you are reading is a static file.</p>
-      <p>The processing happens in a Web Worker inside this tab (`assets/worker.js`, loading `assets/engine.js`). Worker messages never cross the origin, so no request made by the tools carries your document anywhere. The engine source ships with the page: open `<code>view-source:https://jsonprobe.com/assets/engine.js</code>` and search for `fetch`, `XMLHttpRequest` or `sendBeacon` — there is one `fetch`, described below, and it is not in the formatting path.</p>
+      <p>The processing happens in a Web Worker inside this tab (<code>assets/worker.js</code>, loading <code>assets/engine.js</code>). Worker messages never cross the origin, so no request made by the tools carries your document anywhere. The engine source ships with the page: open <code>assets/engine.js</code> — a plain file at the same origin as this page, no build step and no login — and search for <code>fetch</code>, <code>XMLHttpRequest</code> or <code>sendBeacon</code>; there is one <code>fetch</code>, described below, and it is not in the formatting path.</p>
       <p>There is no save or share feature here, and that is the more important half of this page: the 2025 leak affecting other formatters happened because those sites stored what visitors pasted behind a guessable link, not because a paste was uploaded. Nothing here writes your document anywhere — no saved snippet, no share URL, no recent-items list — so there is no address for anyone to walk.</p>
   <h2 id="the-one-exception-schema-by-url">The one exception: schema by URL</h2>
       <p>On the Schema tab you can either paste a schema or name a URL for one. If you choose the URL, your browser requests that URL from its own host. We are not in the middle of that: the request carries no copy of your document, only the address you typed, and we never see it or its response.</p>
       <p>If you do not want that request to exist, paste the schema instead. Nothing else on the site fetches anything.</p>
   <h2 id="who-does-see-something">Who does see something</h2>
-      <p>These files are delivered by GitHub Pages from an IP in `185.199.108.0/22`. Like every web server, GitHub's edge records the standard request line: your IP address, user agent string, the path requested, a timestamp and the `Referer` header if your browser sent one. That log exists whether or not you paste anything into a tool, because requesting the page is what makes the page appear.</p>
+      <p>These files are delivered by GitHub Pages from an IP in <code>185.199.108.0/22</code>. Like every web server, GitHub's edge records the standard request line: your IP address, user agent string, the path requested, a timestamp and the <code>Referer</code> header if your browser sent one. That log exists whether or not you paste anything into a tool, because requesting the page is what makes the page appear.</p>
       <p>If you open a page through a search engine, the search engine also knows you asked. That is on their side, not ours.</p>
   <h2 id="ads-and-consent">Ads and consent</h2>
-      <p>This site is served with Google AdSense enabled. Adverts come from `pagead2.googlesyndication.com` and `googleadservices.com`, so your browser talks to Google when you load a page here — that is a third-party request, and it is visible in a network panel. We have reworded every sentence that would stop being true, rather than keep it.</p>
+      <p>This site is served with Google AdSense enabled. Adverts come from <code>pagead2.googlesyndication.com</code> and <code>googleadservices.com</code>, so your browser talks to Google when you load a page here — that is a third-party request, and it is visible in a network panel. We have reworded every sentence that would stop being true, rather than keep it.</p>
       <p>Google uses cookies to serve ads based on your prior visits to this or other sites. The Google advertising cookie lets Google and its partners use data for ad targeting. You can opt out at <a href="https://www.google.com/settings/ads">https://www.google.com/settings/ads</a> or at <a href="https://www.aboutads.info/choices">https://www.aboutads.info/choices</a>, and Google's own policy on what it collects is at <a href="https://policies.google.com/technologies/partner-sites">https://policies.google.com/technologies/partner-sites</a>.</p>
       <p>In the EEA, the UK and Switzerland you should see a consent message before any personalised advertising. If you do not see one, your region may not require it here, or the message was dismissed; either way the amount of data shared with Google is governed by that consent choice, not by anything on this site.</p>
       <p>Revenue from ads does not change what the tools do with your input: nothing about the formatting path moves because an advert is on the page.</p>
   <h2 id="analytics">Analytics</h2>
       <p>This build ships no analytics of any kind; if one is ever added, the request shows up in your own network panel and this paragraph gets rewritten. Nothing measures which documents you format, what you search for, or how long you stay — a page counter would need a request to whoever serves it, and this site makes none for that purpose. If a network panel on a page here shows the page's own files plus the ad tag — and nothing that carries your document — that is the whole story.</p>
   <h2 id="cookies-and-storage">Cookies and storage</h2>
-      <p>This site sets no cookies of its own and keeps nothing in `localStorage` or `IndexedDB`. Your input is not remembered if you reload: it stays in a textarea until the tab goes away. With advertising enabled, Google may set cookies on its own domains; those are theirs to read, not ours.</p>
+      <p>This site sets no cookies of its own and keeps nothing in <code>localStorage</code> or <code>IndexedDB</code>. Your input is not remembered if you reload: it stays in a textarea until the tab goes away. With advertising enabled, Google may set cookies on its own domains; those are theirs to read, not ours.</p>
   <h2 id="feedback">Feedback</h2>
       <p>The quiet link next to a parse error, and the one in the footer of every page, opens a new issue on <a href="https://github.com/george-poe/jsonprobe-com">https://github.com/george-poe/jsonprobe-com</a> with a short note already typed in it: the page path, the length of your input in bytes, how long the run took, and the error message exactly as this page printed it. It is an ordinary link, so there is no separate submission channel for feedback: what appears in the form is what the link put there, on screen before anything is sent, and you can read it, change it, or delete it.</p>
       <p>One limit stated plainly rather than glossed: an error message can quote a short fragment of what you pasted, because that is what makes an error message useful. Those fields are length-capped for that reason and the document is never attached whole. If a fragment in the pre-filled note is sensitive, cut it before sending — once sent, the issue is public and GitHub keeps it under its own terms, not ours.</p>
