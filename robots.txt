@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: http://jsonprobe.com/sitemap.xml
+Sitemap: https://jsonprobe.com/sitemap.xml
